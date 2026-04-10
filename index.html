@@ -1,4 +1,583 @@
-// ═══════════════════════════════════════════════════
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Pulse — Live Weather Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      transition: background 3s ease;
+      color: white;
+      overflow-x: hidden;
+    }
+
+    /* Sky backgrounds per theme */
+    body.theme-pleasant {
+      background: linear-gradient(170deg, #1a6fdb 0%, #4da6e8 40%, #87ceeb 70%, #b8e4f7 100%);
+    }
+
+    body.theme-hot {
+      background: linear-gradient(170deg, #7b2d00 0%, #c45200 30%, #e87a00 60%, #f5a623 100%);
+    }
+
+    body.theme-rain {
+      background: linear-gradient(170deg, #1a1a2e 0%, #2d3561 40%, #4a5568 70%, #6b7280 100%);
+    }
+
+    body.theme-night {
+      background: linear-gradient(170deg, #020818 0%, #0b1426 30%, #0d1b2a 60%, #111827 100%);
+    }
+
+    body.theme-cold {
+      background: linear-gradient(170deg, #0f2d60 0%, #1e4a8a 40%, #3b82c4 70%, #93c5fd 100%);
+    }
+
+    body.theme-storm {
+      background: linear-gradient(170deg, #0a0a0a 0%, #1a1a2e 30%, #1f2937 60%, #374151 100%);
+    }
+
+    body.theme-dawn {
+      background: linear-gradient(170deg, #1a1a2e 0%, #4a2650 15%, #b05060 35%, #e07850 55%, #f5b060 75%, #fcd890 100%);
+    }
+
+    body.theme-dusk {
+      background: linear-gradient(170deg, #0d1b3e 0%, #3b1f5c 20%, #8a3058 40%, #d65040 60%, #f09030 80%, #fbc66f 100%);
+    }
+
+    /* Animated background layers */
+    .sky-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    /* Stars layer */
+    .star {
+      position: absolute;
+      border-radius: 50%;
+      background: white;
+      animation: twinkle 2s infinite alternate;
+    }
+
+    @keyframes twinkle {
+      from {
+        opacity: 0.2;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* Rain */
+    .raindrop {
+      position: absolute;
+      width: 1.5px;
+      background: linear-gradient(to bottom, transparent, rgba(190, 215, 255, 0.7));
+      animation: fall linear infinite;
+      top: -30px;
+      border-radius: 2px;
+    }
+
+    @keyframes fall {
+      to {
+        transform: translateY(110vh) translateX(-10px);
+      }
+    }
+
+    /* Floating clouds */
+    .cloud-wrap {
+      position: absolute;
+      animation: drift linear infinite;
+    }
+
+    @keyframes drift {
+      from {
+        transform: translateX(-200px);
+      }
+
+      to {
+        transform: translateX(110vw);
+      }
+    }
+
+    /* Lightning */
+    .lightning {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0);
+      animation: lightning 6s infinite;
+    }
+
+    @keyframes lightning {
+
+      0%,
+      94%,
+      97%,
+      100% {
+        background: rgba(255, 255, 255, 0);
+      }
+
+      95%,
+      96% {
+        background: rgba(255, 255, 255, 0.12);
+      }
+    }
+
+    /* Snow */
+    .snowflake {
+      position: absolute;
+      color: white;
+      font-size: 12px;
+      animation: snowfall linear infinite;
+      opacity: 0.7;
+      top: -20px;
+    }
+
+    @keyframes snowfall {
+      to {
+        transform: translateY(110vh) rotate(360deg);
+      }
+    }
+
+    /* Main layout */
+    .app {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 0 0 2rem;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 1.5rem 1.5rem 0.5rem;
+    }
+
+    .brand h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    .brand p {
+      font-size: 12px;
+      opacity: 0.65;
+      margin-top: 2px;
+    }
+
+    .time-badge {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(10px);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+
+    /* Hero section */
+    .hero {
+      text-align: center;
+      padding: 1.5rem 1rem 1.5rem;
+    }
+
+    .weather-icon-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100px;
+      height: 100px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      margin-bottom: 1rem;
+      backdrop-filter: blur(8px);
+    }
+
+    .weather-icon-wrap svg {
+      width: 56px;
+      height: 56px;
+    }
+
+    .big-temp {
+      font-size: 64px;
+      font-weight: 200;
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+
+    .big-temp sup {
+      font-size: 28px;
+      font-weight: 300;
+      vertical-align: top;
+      margin-top: 12px;
+      display: inline-block;
+    }
+
+    .condition-title {
+      font-size: 20px;
+      font-weight: 500;
+      margin-top: 0.5rem;
+    }
+
+    .condition-sub {
+      font-size: 13px;
+      opacity: 0.65;
+      margin-top: 4px;
+    }
+
+    /* Cards grid */
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 0 1rem;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 14px 16px;
+      transition: background 0.3s;
+    }
+
+    .card:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .card-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      opacity: 0.6;
+      margin-bottom: 6px;
+    }
+
+    .card-value {
+      font-size: 28px;
+      font-weight: 300;
+      line-height: 1;
+    }
+
+    .card-unit {
+      font-size: 14px;
+      font-weight: 400;
+      opacity: 0.7;
+      margin-left: 2px;
+    }
+
+    .card-sub {
+      font-size: 11px;
+      opacity: 0.55;
+      margin-top: 4px;
+    }
+
+    /* Full-width card */
+    .card-full {
+      grid-column: 1 / -1;
+    }
+
+    /* Discomfort bar */
+    .disc-bar-bg {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.15);
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .disc-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 1.5s ease, background 1.5s ease;
+    }
+
+    .disc-status-text {
+      font-size: 11px;
+      opacity: 0.6;
+      margin-top: 5px;
+    }
+
+    /* Chart */
+    .chart-section {
+      padding: 0.75rem 1rem 0;
+    }
+
+    .chart-card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .chart-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      opacity: 0.6;
+    }
+
+    /* Report */
+    .report-section {
+      padding: 0.75rem 1rem 0;
+    }
+
+    .report-card {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+    }
+
+    .report-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      opacity: 0.5;
+      margin-bottom: 8px;
+    }
+
+    .report-text {
+      font-size: 13px;
+      line-height: 1.7;
+      opacity: 0.85;
+    }
+
+    /* Theme switcher */
+    .theme-switcher {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 0.75rem 1rem 0;
+    }
+
+    .theme-btn {
+      font-size: 12px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.08);
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .theme-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .theme-btn.active {
+      background: rgba(255, 255, 255, 0.28);
+      border-color: rgba(255, 255, 255, 0.55);
+      font-weight: 500;
+    }
+
+    /* Alert banner */
+    .alert-banner {
+      margin: 0.75rem 1rem 0;
+      background: rgba(220, 38, 38, 0.3);
+      border: 1px solid rgba(220, 38, 38, 0.5);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 12px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .alert-banner.show {
+      display: flex;
+    }
+
+    .alert-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #FF6B6B;
+      flex-shrink: 0;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.5;
+        transform: scale(1.3);
+      }
+    }
+
+    /* API status */
+    .api-status {
+      padding: 0.5rem 1rem 0;
+      font-size: 11px;
+      opacity: 0.45;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .api-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .api-dot.live {
+      background: #4ade80;
+      animation: pulse 2s infinite;
+    }
+
+    .api-dot.demo {
+      background: #facc15;
+    }
+  </style>
+</head>
+
+<body class="theme-pleasant">
+
+  <div class="sky-overlay" id="sky-overlay"></div>
+
+  <div class="app">
+
+    <header>
+      <div class="brand">
+        <h1>Campus Pulse</h1>
+        <p>Hyperlocal campus weather station</p>
+      </div>
+      <div class="time-badge" id="time-badge">--:--</div>
+    </header>
+
+    <div class="api-status">
+      <div class="api-dot demo" id="api-dot"></div>
+      <span id="api-label">Demo mode — connect to /api/live for live data</span>
+    </div>
+
+    <div class="alert-banner" id="alert-banner">
+      <div class="alert-dot"></div>
+      <span id="alert-text">Severe weather warning</span>
+    </div>
+
+    <div class="hero">
+      <div class="weather-icon-wrap">
+        <svg id="weather-svg" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="big-temp"><span id="val-temp">--</span><sup>°C</sup></div>
+      <div class="condition-title" id="condition-title">Loading...</div>
+      <div class="condition-sub" id="condition-sub">Fetching sensor data</div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">Humidity</div>
+        <div class="card-value"><span id="val-hum">--</span><span class="card-unit">%</span></div>
+        <div class="card-sub" id="hum-sub">--</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Pressure</div>
+        <div class="card-value"><span id="val-pres">--</span><span class="card-unit">hPa</span></div>
+        <div class="card-sub" id="pres-sub">--</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Rain</div>
+        <div class="card-value" id="val-rain" style="font-size:22px;padding-top:4px;">--</div>
+        <div class="card-sub" id="rain-sub">--</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Light level</div>
+        <div class="card-value"><span id="val-light">--</span><span class="card-unit">lux</span></div>
+        <div class="card-sub" id="light-sub">--</div>
+      </div>
+      <div class="card card-full">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div class="card-label">Discomfort index</div>
+            <div class="card-value"><span id="val-disc">--</span> <span class="card-unit" id="disc-level">--</span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="card-label">Feels like</div>
+            <div style="font-size:22px;font-weight:300;margin-top:2px;"><span id="val-feels">--</span>°C</div>
+          </div>
+        </div>
+        <div class="disc-bar-bg">
+          <div class="disc-bar-fill" id="disc-bar" style="width:0%"></div>
+        </div>
+        <div class="disc-status-text" id="disc-text">--</div>
+      </div>
+    </div>
+
+    <div class="chart-section">
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">24h temperature trend</span>
+          <span style="font-size:11px;opacity:0.5;" id="chart-range">--</span>
+        </div>
+        <canvas id="tempChart" height="90"></canvas>
+      </div>
+    </div>
+
+    <div class="report-section">
+      <div class="report-card">
+        <div class="report-label">Auto-generated weather report</div>
+        <div class="report-text" id="report-text">Initializing...</div>
+      </div>
+    </div>
+
+    <div class="theme-switcher">
+      <button class="theme-btn active" id="btn-auto" onclick="enableAutoMode()">🔄 Auto</button>
+      <button class="theme-btn" onclick="setScenario('pleasant')">☀️ Pleasant</button>
+      <button class="theme-btn" onclick="setScenario('hot')">🔥 Scorching</button>
+      <button class="theme-btn" onclick="setScenario('rain')">🌧 Rainy</button>
+      <button class="theme-btn" onclick="setScenario('night')">🌙 Night</button>
+      <button class="theme-btn" onclick="setScenario('cold')">❄️ Cold</button>
+      <button class="theme-btn" onclick="setScenario('storm')">⛈ Storm</button>
+      <button class="theme-btn" onclick="setScenario('dawn')">🌅 Dawn</button>
+      <button class="theme-btn" onclick="setScenario('dusk')">🌇 Dusk</button>
+    </div>
+
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════
     // Campus Pulse — Auto Time + Climate Theme Engine
     // ═══════════════════════════════════════════════════
     const OPEN_METEO = 'https://api.open-meteo.com/v1/forecast';
@@ -79,55 +658,6 @@
         discLevel: 'Comfortable', discText: 'Cooling down — pleasant evening ahead',
         report: 'Sunset paints the campus sky. Temperature settling at 27°C. Perfect for an evening stroll.',
         trend: [24, 26, 28, 30, 31, 31, 30, 29, 28, 27, 25, 23], theme: 'dusk'
-      },
-      foggy: {
-        temp: 18, hum: 92, pres: 1010, rain: 'No', light: 150, disc: 19, feels: 17,
-        title: 'Foggy', sub: 'Low visibility — proceed with caution', alert: null,
-        humSub: 'Very humid', presSub: 'Normal', rainSub: 'Moist air', lightSub: 'Dim and hazy',
-        discLevel: 'Comfortable', discText: 'Cool and misty conditions',
-        report: 'Campus is wrapped in fog at 18°C with very high humidity. Visibility is reduced to ~100m. Pedestrians advised to use caution.',
-        trend: [16, 16, 17, 18, 18, 18, 17, 17, 16, 16, 15, 15], theme: 'foggy'
-      },
-      snow: {
-        temp: 3, hum: 65, pres: 1018, rain: 'No', light: 280, disc: 2, feels: 0,
-        title: 'Snowfall', sub: 'Winter wonderland — stay warm', alert: 'Roads may be slippery. Wear appropriate footwear.',
-        humSub: 'Moderate', presSub: 'High — stable', rainSub: 'Light snow', lightSub: 'Pale snow-lit',
-        discLevel: 'Very cold', discText: 'Severe cold — hypothermia risk with prolonged exposure',
-        report: 'Fresh snow on campus at 3°C. Beautiful winter conditions but require heavy winter gear. Classes operating normally.',
-        trend: [2, 2, 3, 4, 4, 3, 2, 2, 1, 1, 0, 0], theme: 'snow'
-      },
-      haze: {
-        temp: 32, hum: 48, pres: 1005, rain: 'No', light: 500, disc: 28, feels: 33,
-        title: 'Hazy', sub: 'Air quality degraded — limit outdoor exposure',
-        alert: 'Air quality index is poor. Sensitive groups avoid outdoor activities.',
-        humSub: 'Dry', presSub: 'Low — unstable', rainSub: 'No rain', lightSub: 'Polluted air',
-        discLevel: 'Moderate', discText: 'Heat and poor air quality — stay cool indoors',
-        report: 'Campus visibility reduced by haze at 32°C. Air quality is degraded. Wear N95 masks if outdoors. UV protection essential.',
-        trend: [28, 29, 30, 31, 32, 32, 31, 30, 30, 29, 29, 28], theme: 'haze'
-      },
-      partly: {
-        temp: 25, hum: 60, pres: 1016, rain: 'No', light: 580, disc: 21, feels: 24,
-        title: 'Partly cloudy', sub: 'Mixed conditions — great for outdoor plans', alert: null,
-        humSub: 'Comfortable', presSub: 'Stable', rainSub: 'No rain expected', lightSub: 'Partly sunny',
-        discLevel: 'Comfortable', discText: 'Pleasant conditions throughout the day',
-        report: 'Many clouds but plenty of sunshine at 25°C. Humidity 60% and pressure stable. Good day for campus events.',
-        trend: [22, 22, 23, 24, 25, 25, 25, 25, 24, 24, 23, 22], theme: 'partly'
-      },
-      windy: {
-        temp: 22, hum: 55, pres: 1008, rain: 'No', light: 620, disc: 20, feels: 18,
-        title: 'Windy', sub: 'Strong gusts — hold onto your items', alert: null,
-        humSub: 'Comfortable', presSub: 'Dropping', rainSub: 'No rain', lightSub: 'Bright with gusts',
-        discLevel: 'Comfortable', discText: 'Wind makes it feel cooler than actual temp',
-        report: 'Sustained winds at 22 km/h with gusts up to 35 km/h. Hold loose items. Temperature 22°C feels like 18°C.',
-        trend: [20, 20, 21, 21, 22, 22, 22, 21, 21, 20, 20, 19], theme: 'windy'
-      },
-      humid: {
-        temp: 24, hum: 85, pres: 1012, rain: 'No', light: 650, disc: 27, feels: 25,
-        title: 'Humid', sub: 'Sticky conditions — stay hydrated', alert: null,
-        humSub: 'Very humid', presSub: 'Normal', rainSub: 'Potential rain', lightSub: 'Bright but hazy',
-        discLevel: 'Moderate', discText: 'High humidity increases discomfort — monitor heat stress',
-        report: 'Exceptionally humid at 85% with 24°C temperature. Feels like 25°C. Expect afternoon thundershowers possible.',
-        trend: [22, 22, 23, 23, 24, 24, 24, 23, 23, 22, 22, 21], theme: 'humid'
       }
     };
 
@@ -276,10 +806,10 @@
       applyAutoTheme();
     }
 
-    function setScenario(name, btn) {
+    function setScenario(name) {
       autoMode = false; liveMode = false; lastAutoTheme = null;
       document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
+      event.target.classList.add('active');
       applyData(scenarios[name]);
     }
 
@@ -550,3 +1080,7 @@
       } catch (e) { }
     }
     fetchLive(); setInterval(fetchLive, 30000);
+  </script>
+</body>
+
+</html>
