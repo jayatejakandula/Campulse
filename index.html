@@ -488,7 +488,7 @@
 
     <div class="api-status">
       <div class="api-dot demo" id="api-dot"></div>
-      <span id="api-label">Demo mode — connect to /api/live for live data</span>
+      <span id="api-label">Loading latest Supabase record...</span>
     </div>
 
     <div class="alert-banner" id="alert-banner">
@@ -580,16 +580,16 @@
     // ═══════════════════════════════════════════════════
     // Campus Pulse — Auto Time + Climate Theme Engine
     // ═══════════════════════════════════════════════════
-    const OPEN_METEO = 'https://api.open-meteo.com/v1/forecast';
     const LIVE_API = '/api/live';
-    const DEFAULT_LAT = 17.385;
-    const DEFAULT_LON = 78.4867;
+    const SUPABASE_URL = 'https://emtvuzsdamizkdkegwuv.supabase.co/rest/v1/';
+    const SUPABASE_ANON_KEY = 'sb_publishable_8gFIYwNgWdCf-fi3vkgzgQ_L1w_EXdP';
+    const SUPABASE_TABLE = 'readings';
+    const SUPABASE_CONFIGURED = !!SUPABASE_URL && !SUPABASE_URL.includes('YOUR-PROJECT-REF') && !!SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('YOUR-ANON-KEY');
 
     let chart = null;
     let autoMode = true;
     let liveMode = false;
     let currentWeather = null;
-    let userCoords = { lat: DEFAULT_LAT, lon: DEFAULT_LON };
     let lastAutoTheme = null;
 
     const scenarios = {
@@ -753,30 +753,95 @@
       };
     }
 
-    // ─── Fetch Weather (Open-Meteo, free, no key) ───
+    function normalizeRainValue(value) {
+      if (value === true || value === 'true' || value === 'True' || value === 'Yes' || value === 'yes' || value === 1) return 'Yes';
+      return 'No';
+    }
+
+    function buildSupabaseData(row) {
+      const temp = Number(row.temperature ?? row.temp ?? 0);
+      const hum = Number(row.humidity ?? 0);
+      const pres = Number(row.pressure ?? 1013);
+      const rain = normalizeRainValue(row.rain);
+      const light = Number(row.light ?? 0);
+      const disc = typeof row.discomfort === 'number' && !Number.isNaN(row.discomfort)
+        ? Number(row.discomfort)
+        : temp - 0.55 * (1 - hum / 100) * (temp - 14.5);
+      const feels = Math.round(temp + (hum > 70 ? 2 : 0) - (temp < 15 ? 2 : 0));
+      const theme = determineTheme(getISTDate(), {
+        temp,
+        humidity: hum,
+        pressure: pres,
+        weatherCode: rain === 'Yes' ? 61 : hum > 80 ? 3 : 1,
+        cloud: hum > 80 ? 90 : hum > 60 ? 65 : 35,
+        wind: 8
+      });
+      const timestamp = row.timestamp || row.created_at || 'latest';
+      const title = temp > 35 ? 'Heat alert' : temp < 15 ? 'Cold front' : rain === 'Yes' ? 'Rain detected' : 'Latest update';
+      return {
+        temp: Math.round(temp * 10) / 10,
+        hum: Math.round(hum),
+        pres: Math.round(pres),
+        rain,
+        light,
+        disc: Math.round(disc * 10) / 10,
+        feels,
+        title,
+        sub: `Latest Supabase record · ${timestamp}`,
+        alert: null,
+        humSub: hum > 80 ? 'Very humid' : hum > 60 ? 'Humid' : 'Comfortable',
+        presSub: pres < 995 ? 'Low — rain likely' : pres > 1020 ? 'High — stable' : 'Normal',
+        rainSub: rain === 'Yes' ? 'Rain detected' : 'No rain detected',
+        lightSub: light > 700 ? 'Bright daylight' : light > 200 ? 'Moderate light' : 'Low light',
+        discLevel: disc > 30 ? 'Dangerous' : disc > 22 ? 'Moderate' : 'Comfortable',
+        discText: disc > 30 ? 'Avoid prolonged outdoor exposure' : disc > 22 ? 'Moderate strain in sun' : 'Ideal conditions',
+        report: `Latest Supabase reading: ${Math.round(temp)}°C, ${Math.round(hum)}% humidity, ${Math.round(pres)} hPa. ${rain === 'Yes' ? 'Rain detected.' : 'Dry conditions.'} Updated ${timestamp}.`,
+        trend: Array(12).fill(temp),
+        theme
+      };
+    }
+
     async function fetchWeather() {
+      if (!SUPABASE_CONFIGURED) {
+        document.getElementById('api-dot').className = 'api-dot offline';
+        document.getElementById('api-label').textContent = 'Add Supabase URL + anon key to load the latest database row';
+        applyData(scenarios.pleasant);
+        return;
+      }
+
       try {
-        const url = `${OPEN_METEO}?latitude=${userCoords.lat}&longitude=${userCoords.lon}` +
-          `&current=temperature_2m,relative_humidity_2m,surface_pressure,rain,weather_code,cloud_cover,wind_speed_10m` +
-          `&hourly=temperature_2m&timezone=Asia/Kolkata&forecast_days=1`;
-        const res = await fetch(url);
-        if (!res.ok) return;
-        const d = await res.json();
-        const c = d.current;
-        const ht = d.hourly?.temperature_2m || [];
-        const step = Math.floor(ht.length / 12) || 1;
-        const trend = [];
-        for (let i = 0; i < 12 && i * step < ht.length; i++) trend.push(Math.round(ht[i * step]));
+        const url = `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=timestamp,temperature,humidity,pressure,rain,light,discomfort&order=id.desc&limit=1`;
+        const res = await fetch(url, {
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!res.ok) throw new Error(`Supabase request failed with ${res.status}`);
+        const rows = await res.json();
+        const row = Array.isArray(rows) && rows.length ? rows[0] : null;
+        if (!row) throw new Error('No records found');
+
         currentWeather = {
-          temp: c.temperature_2m, humidity: c.relative_humidity_2m, pressure: c.surface_pressure,
-          rain: c.rain, weatherCode: c.weather_code, cloud: c.cloud_cover, wind: c.wind_speed_10m,
-          hourly: trend.length >= 12 ? trend : undefined
+          temp: Number(row.temperature ?? 0),
+          humidity: Number(row.humidity ?? 0),
+          pressure: Number(row.pressure ?? 1013),
+          rain: normalizeRainValue(row.rain),
+          weatherCode: normalizeRainValue(row.rain) === 'Yes' ? 61 : (Number(row.humidity ?? 0) > 80 ? 3 : 1),
+          cloud: Number(row.humidity ?? 0) > 80 ? 90 : Number(row.humidity ?? 0) > 60 ? 65 : 35,
+          wind: 8
         };
+
+        const data = buildSupabaseData(row);
         document.getElementById('api-dot').className = 'api-dot live';
-        document.getElementById('api-label').textContent = 'Live weather · auto-updating every 10 min';
-        if (autoMode) applyAutoTheme();
+        document.getElementById('api-label').textContent = 'Latest reading from Supabase';
+        applyData(data);
       } catch (e) {
-        console.log('Weather fetch failed:', e);
+        console.warn('Supabase fetch failed:', e);
+        document.getElementById('api-dot').className = 'api-dot offline';
+        document.getElementById('api-label').textContent = 'Supabase unavailable — using fallback';
         if (autoMode) applyAutoTheme();
       }
     }
@@ -1055,31 +1120,9 @@
     updateClock();
     setInterval(updateClock, 30000);
 
-    // Try browser geolocation, then fetch weather
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => { userCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude }; fetchWeather(); },
-        () => fetchWeather()
-      );
-    } else { fetchWeather(); }
-
-    // Apply time-based theme immediately (before weather loads)
+    fetchWeather();
+    setInterval(fetchWeather, 30000);
     applyAutoTheme();
-
-    // Re-fetch weather every 10 minutes
-    setInterval(fetchWeather, 600000);
-
-    // Also try the local sensor API
-    async function fetchLive() {
-      try {
-        const res = await fetch(LIVE_API); if (!res.ok) return;
-        const raw = await res.json(); if (raw.error) return;
-        liveMode = true;
-        document.getElementById('api-dot').className = 'api-dot live';
-        document.getElementById('api-label').textContent = 'Live sensor + weather API';
-      } catch (e) { }
-    }
-    fetchLive(); setInterval(fetchLive, 30000);
   </script>
 </body>
 
