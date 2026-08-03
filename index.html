@@ -470,6 +470,10 @@
       background: #facc15;
     }
 
+    .api-dot.offline {
+      background: #fb7185;
+    }
+
     /* OnePlus-inspired acrylic refresh */
     :root {
       --panel-bg: rgba(11, 14, 20, 0.34);
@@ -745,6 +749,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
+
       *,
       *::before,
       *::after {
@@ -966,10 +971,23 @@
     // Campus Pulse — Auto Time + Climate Theme Engine
     // ═══════════════════════════════════════════════════
     const LIVE_API = '/api/live';
-    const SUPABASE_URL = 'https://emtvuzsdamizkdkegwuv.supabase.co/rest/v1/';
+    const SUPABASE_URL = 'https://emtvuzsdamizkdkegwuv.supabase.co/rest/v1/weather_data';
     const SUPABASE_ANON_KEY = 'sb_publishable_8gFIYwNgWdCf-fi3vkgzgQ_L1w_EXdP';
     const SUPABASE_TABLE = 'readings';
     const SUPABASE_CONFIGURED = !!SUPABASE_URL && !SUPABASE_URL.includes('YOUR-PROJECT-REF') && !!SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('YOUR-ANON-KEY');
+
+    function buildSupabaseRestUrl(pathAndQuery) {
+      const baseUrl = SUPABASE_URL.replace(/\/+$/, '');
+      const restBaseUrl = baseUrl.endsWith('/rest/v1') ? baseUrl : `${baseUrl}/rest/v1`;
+      return `${restBaseUrl}/${pathAndQuery.replace(/^\/+/, '')}`;
+    }
+
+    function getSupabaseFallbackLabel(error) {
+      const message = String(error?.message || '');
+      if (message.includes('401') || message.includes('403')) return 'Supabase auth blocked - check API key/RLS policy';
+      if (message.includes('404')) return 'Supabase table not found or not exposed - using fallback';
+      return 'Supabase unavailable - using fallback';
+    }
 
     let chart = null;
     let autoMode = true;
@@ -1195,7 +1213,7 @@
       }
 
       try {
-        const url = `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=timestamp,temperature,humidity,pressure,rain,light,discomfort&order=id.desc&limit=1`;
+        const url = buildSupabaseRestUrl(`${encodeURIComponent(SUPABASE_TABLE)}?select=timestamp,temperature,humidity,pressure,rain,light,discomfort&order=id.desc&limit=1`);
         const res = await fetch(url, {
           headers: {
             apikey: SUPABASE_ANON_KEY,
@@ -1226,7 +1244,7 @@
       } catch (e) {
         console.warn('Supabase fetch failed:', e);
         document.getElementById('api-dot').className = 'api-dot offline';
-        document.getElementById('api-label').textContent = 'Supabase unavailable — using fallback';
+        document.getElementById('api-label').textContent = getSupabaseFallbackLabel(e);
         if (autoMode) applyAutoTheme();
       }
     }
