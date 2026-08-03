@@ -972,9 +972,10 @@
     // ═══════════════════════════════════════════════════
     const LIVE_API = '/api/live';
     const SUPABASE_URL = 'https://emtvuzsdamizkdkegwuv.supabase.co';
-    // TODO: Replace with your real Supabase anon key (the long eyJ... JWT from Settings → API)
-    const SUPABASE_ANON_KEY = 'sb_secret_iJXyWKR7uxOBChOfCckb4A_rOqgrm15';
+    const SUPABASE_ANON_KEY = 'sb_publishable_8gFIYwNgWdCf-fi3vkgzgQ_L1w_EXdP';
     const SUPABASE_TABLE = 'weather_data';
+    const SUPABASE_SELECT_COLUMNS = 'id,created_at,temperature,humidity,pressure,rain,altitude,gas';
+    const RAIN_SENSOR_WET_THRESHOLD = 500;
     const SUPABASE_CONFIGURED = !!SUPABASE_URL && !SUPABASE_URL.includes('YOUR-PROJECT-REF') && !!SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('YOUR-ANON-KEY');
 
     function buildSupabaseRestUrl(pathAndQuery) {
@@ -988,6 +989,17 @@
       if (message.includes('401') || message.includes('403')) return 'Supabase auth blocked - check API key/RLS policy';
       if (message.includes('404')) return 'Supabase table not found or not exposed - using fallback';
       return 'Supabase unavailable - using fallback';
+    }
+
+    function buildSupabaseLatestRowsUrl() {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const query = new URLSearchParams({
+        select: SUPABASE_SELECT_COLUMNS,
+        created_at: `gte.${since}`,
+        order: 'id.desc',
+        limit: '24'
+      });
+      return buildSupabaseRestUrl(`${encodeURIComponent(SUPABASE_TABLE)}?${query.toString()}`);
     }
 
     let chart = null;
@@ -1159,10 +1171,29 @@
 
     function normalizeRainValue(value) {
       if (value === true || value === 'true' || value === 'True' || value === 'Yes' || value === 'yes' || value === 1) return 'Yes';
+      if (typeof value === 'number' && Number.isFinite(value)) return value <= RAIN_SENSOR_WET_THRESHOLD ? 'Yes' : 'No';
+      if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value) <= RAIN_SENSOR_WET_THRESHOLD ? 'Yes' : 'No';
       return 'No';
     }
 
-    function buildSupabaseData(row) {
+    function formatTrendLabel(row) {
+      const date = new Date(row.created_at || row.timestamp || Date.now());
+      if (Number.isNaN(date.getTime())) return '';
+      return date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).replace(' ', '');
+    }
+
+    function buildSupabaseTrend(rows, latestTemp) {
+      const orderedRows = (Array.isArray(rows) ? rows : [])
+        .slice()
+        .reverse()
+        .filter(row => Number.isFinite(Number(row.temperature ?? row.temp)));
+      const trend = orderedRows.map(row => Math.round(Number(row.temperature ?? row.temp) * 10) / 10);
+      const labels = orderedRows.map(formatTrendLabel);
+      if (trend.length) return { trend, labels };
+      return { trend: [latestTemp], labels: ['Now'] };
+    }
+
+    function buildSupabaseData(row, rows = []) {
       const temp = Number(row.temperature ?? row.temp ?? 0);
       const hum = Number(row.humidity ?? 0);
       const pres = Number(row.pressure ?? 1013);
@@ -1182,6 +1213,7 @@
       });
       const timestamp = row.timestamp || row.created_at || 'latest';
       const title = temp > 35 ? 'Heat alert' : temp < 15 ? 'Cold front' : rain === 'Yes' ? 'Rain detected' : 'Latest update';
+      const chartData = buildSupabaseTrend(rows, Math.round(temp * 10) / 10);
       return {
         temp: Math.round(temp * 10) / 10,
         hum: Math.round(hum),
@@ -1200,7 +1232,8 @@
         discLevel: disc > 30 ? 'Dangerous' : disc > 22 ? 'Moderate' : 'Comfortable',
         discText: disc > 30 ? 'Avoid prolonged outdoor exposure' : disc > 22 ? 'Moderate strain in sun' : 'Ideal conditions',
         report: `Latest Supabase reading: ${Math.round(temp)}°C, ${Math.round(hum)}% humidity, ${Math.round(pres)} hPa. ${rain === 'Yes' ? 'Rain detected.' : 'Dry conditions.'} Updated ${timestamp}.`,
-        trend: Array(12).fill(temp),
+        trend: chartData.trend,
+        trendLabels: chartData.labels,
         theme
       };
     }
@@ -1214,7 +1247,7 @@
       }
 
       try {
-        const url = buildSupabaseRestUrl(`${encodeURIComponent(SUPABASE_TABLE)}?select=timestamp,temperature,humidity,pressure,rain,light,discomfort&order=id.desc&limit=1`);
+        const url = buildSupabaseLatestRowsUrl();
         const res = await fetch(url, {
           headers: {
             apikey: SUPABASE_ANON_KEY,
@@ -1238,7 +1271,7 @@
           wind: 8
         };
 
-        const data = buildSupabaseData(row);
+        const data = buildSupabaseData(row, rows);
         document.getElementById('api-dot').className = 'api-dot live';
         document.getElementById('api-label').textContent = 'Latest reading from Supabase';
         applyData(data);
@@ -1467,9 +1500,12 @@
     }
 
     // ─── Chart ───
-    function drawChart(trend) {
+    function drawChart(trend, trendLabels) {
       const ctx = document.getElementById('tempChart').getContext('2d');
-      const labels = ['6a', '7a', '8a', '9a', '10a', '11a', '12p', '1p', '2p', '3p', '4p', '5p'];
+      const defaultLabels = ['6a', '7a', '8a', '9a', '10a', '11a', '12p', '1p', '2p', '3p', '4p', '5p'];
+      const labels = Array.isArray(trendLabels) && trendLabels.length === trend.length
+        ? trendLabels
+        : trend.length === defaultLabels.length ? defaultLabels : trend.map((_, i) => `${i + 1}`);
       const min = Math.min(...trend), max = Math.max(...trend);
       document.getElementById('chart-range').textContent = min + '° – ' + max + '°';
       if (chart) { chart.destroy(); }
@@ -1532,7 +1568,7 @@
       if (data.alert) { al.classList.add('show'); document.getElementById('alert-text').textContent = data.alert; }
       else { al.classList.remove('show'); }
       document.body.className = 'theme-' + data.theme;
-      drawSkyEffects(data); drawWeatherIcon(data); drawChart(data.trend);
+      drawSkyEffects(data); drawWeatherIcon(data); drawChart(data.trend, data.trendLabels);
     }
 
     // ─── Init ───
