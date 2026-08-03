@@ -971,9 +971,10 @@
     // Campus Pulse — Auto Time + Climate Theme Engine
     // ═══════════════════════════════════════════════════
     const LIVE_API = '/api/live';
-    const SUPABASE_URL = 'https://emtvuzsdamizkdkegwuv.supabase.co/rest/v1/weather_data';
+    const SUPABASE_URL = 'https://emtvuzsdamizkdkegwuv.supabase.co';
+    // TODO: Replace with your real Supabase anon key (the long eyJ... JWT from Settings → API)
     const SUPABASE_ANON_KEY = 'sb_publishable_8gFIYwNgWdCf-fi3vkgzgQ_L1w_EXdP';
-    const SUPABASE_TABLE = 'readings';
+    const SUPABASE_TABLE = 'weather_data';
     const SUPABASE_CONFIGURED = !!SUPABASE_URL && !SUPABASE_URL.includes('YOUR-PROJECT-REF') && !!SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('YOUR-ANON-KEY');
 
     function buildSupabaseRestUrl(pathAndQuery) {
