@@ -469,6 +469,391 @@
     .api-dot.demo {
       background: #facc15;
     }
+
+    /* OnePlus-inspired acrylic refresh */
+    :root {
+      --panel-bg: rgba(11, 14, 20, 0.34);
+      --panel-bg-strong: rgba(8, 11, 18, 0.48);
+      --panel-border: rgba(255, 255, 255, 0.16);
+      --panel-highlight: rgba(255, 255, 255, 0.24);
+      --panel-shadow: 0 18px 48px rgba(0, 0, 0, 0.20);
+      --accent-red: #ff3b30;
+      --ease-oneplus: cubic-bezier(0.22, 1, 0.36, 1);
+      --weather-icon-size: 112px;
+      --weather-symbol-size: 62px;
+    }
+
+    body {
+      background-attachment: fixed;
+      text-rendering: geometricPrecision;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::before {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 22%),
+        radial-gradient(900px 460px at 50% -10%, rgba(255, 255, 255, 0.22), transparent 65%),
+        linear-gradient(90deg, rgba(255, 59, 48, 0.12), transparent 24%, transparent 76%, rgba(255, 255, 255, 0.08));
+      mix-blend-mode: screen;
+      opacity: 0.68;
+    }
+
+    body::after {
+      background-image: linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+      background-size: 100% 9px;
+      opacity: 0.11;
+    }
+
+    .app {
+      max-width: 520px;
+      padding: 0 0 2.35rem;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      padding: 1.2rem 1.15rem 0.7rem;
+      background: linear-gradient(180deg, rgba(10, 13, 20, 0.42), rgba(10, 13, 20, 0));
+      backdrop-filter: blur(18px) saturate(1.25);
+    }
+
+    .brand h1 {
+      font-size: 24px;
+      font-weight: 650;
+      letter-spacing: 0;
+    }
+
+    .brand p,
+    .condition-sub,
+    .card-sub,
+    .disc-status-text,
+    .report-text {
+      color: rgba(255, 255, 255, 0.78);
+      opacity: 1;
+    }
+
+    .time-badge,
+    .weather-icon-wrap,
+    .card,
+    .chart-card,
+    .report-card,
+    .theme-btn,
+    .alert-banner {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.035)),
+        var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      box-shadow: var(--panel-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(22px) saturate(1.35);
+      -webkit-backdrop-filter: blur(22px) saturate(1.35);
+    }
+
+    .time-badge::before,
+    .weather-icon-wrap::before,
+    .card::before,
+    .chart-card::before,
+    .report-card::before,
+    .theme-btn::before,
+    .alert-banner::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(110deg, var(--panel-highlight), transparent 34%, transparent 68%, rgba(255, 255, 255, 0.08));
+      opacity: 0.32;
+      pointer-events: none;
+    }
+
+    .hero {
+      padding: 1.25rem 1rem 1.45rem;
+    }
+
+    .weather-icon-wrap {
+      width: var(--weather-icon-size);
+      height: var(--weather-icon-size);
+      border-radius: 50%;
+      transform: translateZ(0);
+      transition: transform 420ms var(--ease-oneplus), box-shadow 420ms var(--ease-oneplus);
+    }
+
+    .weather-icon-wrap:hover {
+      transform: translateY(-3px) scale(1.02);
+    }
+
+    .weather-icon-wrap svg {
+      position: relative;
+      width: var(--weather-symbol-size);
+      height: var(--weather-symbol-size);
+      filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.22));
+    }
+
+    .big-temp {
+      font-size: 70px;
+      font-weight: 250;
+      letter-spacing: 0;
+      text-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
+    }
+
+    .condition-title {
+      font-weight: 650;
+      letter-spacing: 0;
+    }
+
+    .cards {
+      gap: 12px;
+      padding: 0 1.05rem;
+    }
+
+    .card,
+    .chart-card,
+    .report-card {
+      border-radius: 10px;
+      transition:
+        transform 360ms var(--ease-oneplus),
+        background 360ms var(--ease-oneplus),
+        border-color 360ms var(--ease-oneplus),
+        box-shadow 360ms var(--ease-oneplus);
+    }
+
+    .card {
+      min-height: 112px;
+      padding: 15px 16px;
+    }
+
+    .card:hover,
+    .chart-card:hover,
+    .report-card:hover {
+      transform: translateY(-2px);
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.055)),
+        var(--panel-bg-strong);
+      border-color: rgba(255, 255, 255, 0.25);
+      box-shadow: 0 22px 58px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+    }
+
+    .card-label,
+    .chart-title,
+    .report-label {
+      color: rgba(255, 255, 255, 0.68);
+      opacity: 1;
+      letter-spacing: 0.08em;
+    }
+
+    .card-value {
+      font-weight: 330;
+      letter-spacing: 0;
+    }
+
+    .disc-bar-bg {
+      height: 7px;
+      background: rgba(0, 0, 0, 0.22);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+    }
+
+    .disc-bar-fill {
+      box-shadow: 0 0 20px currentColor;
+    }
+
+    .chart-section,
+    .report-section,
+    .theme-switcher {
+      padding-left: 1.05rem;
+      padding-right: 1.05rem;
+    }
+
+    .chart-card,
+    .report-card {
+      padding: 17px;
+    }
+
+    .theme-switcher {
+      gap: 8px;
+    }
+
+    .theme-btn {
+      border-radius: 8px;
+      padding: 8px 12px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.035)),
+        rgba(10, 13, 20, 0.26);
+      transition:
+        transform 260ms var(--ease-oneplus),
+        background 260ms var(--ease-oneplus),
+        border-color 260ms var(--ease-oneplus);
+    }
+
+    .theme-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .theme-btn.active {
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.07)),
+        rgba(255, 59, 48, 0.28);
+      border-color: rgba(255, 255, 255, 0.42);
+      box-shadow: 0 12px 30px rgba(255, 59, 48, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    }
+
+    .alert-banner {
+      border-radius: 10px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.035)),
+        rgba(120, 10, 14, 0.42);
+    }
+
+    .app.is-transitioning .hero,
+    .app.is-transitioning .cards,
+    .app.is-transitioning .chart-section,
+    .app.is-transitioning .report-section {
+      animation: oneplusPanelIn 560ms var(--ease-oneplus) both;
+    }
+
+    .app.is-transitioning .cards {
+      animation-delay: 50ms;
+    }
+
+    .app.is-transitioning .chart-section {
+      animation-delay: 95ms;
+    }
+
+    .app.is-transitioning .report-section {
+      animation-delay: 130ms;
+    }
+
+    @keyframes oneplusPanelIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.985);
+        filter: blur(6px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    @media (min-width: 820px) {
+      :root {
+        --weather-icon-size: 132px;
+        --weather-symbol-size: 74px;
+      }
+
+      .app {
+        max-width: 1040px;
+        padding-bottom: 3rem;
+      }
+
+      header,
+      .api-status,
+      .alert-banner,
+      .hero,
+      .cards,
+      .chart-section,
+      .report-section,
+      .theme-switcher {
+        margin-left: auto;
+        margin-right: auto;
+        max-width: 980px;
+      }
+
+      header {
+        padding: 1.35rem 1.25rem 0.9rem;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: auto minmax(260px, 1fr);
+        grid-template-areas:
+          "icon temp"
+          "icon title"
+          "icon sub";
+        align-items: center;
+        justify-content: center;
+        column-gap: 2rem;
+        text-align: left;
+        padding: 2.15rem 1.25rem 1.75rem;
+      }
+
+      .weather-icon-wrap {
+        grid-area: icon;
+        margin-bottom: 0;
+      }
+
+      .big-temp {
+        grid-area: temp;
+        font-size: 88px;
+      }
+
+      .condition-title {
+        grid-area: title;
+        font-size: 24px;
+        margin-top: 0;
+      }
+
+      .condition-sub {
+        grid-area: sub;
+        font-size: 14px;
+      }
+
+      .cards {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .card-full {
+        grid-column: 1 / -1;
+      }
+
+      .chart-card,
+      .report-card {
+        padding: 20px;
+      }
+
+      .theme-switcher {
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 390px) {
+      :root {
+        --weather-icon-size: 96px;
+        --weather-symbol-size: 54px;
+      }
+
+      .big-temp {
+        font-size: 62px;
+      }
+
+      .card {
+        padding: 13px 14px;
+      }
+
+      .theme-btn {
+        flex: 1 1 calc(50% - 8px);
+      }
+    }
   </style>
 </head>
 
@@ -1078,7 +1463,13 @@
           }]
         },
         options: {
-          responsive: true, plugins: { legend: { display: false } },
+          responsive: true,
+          animation: { duration: 700, easing: 'easeOutQuart' },
+          transitions: {
+            active: { animation: { duration: 220 } },
+            resize: { animation: { duration: 260 } }
+          },
+          plugins: { legend: { display: false } },
           scales: {
             x: { ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false } },
             y: { ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 10 }, callback: v => v + '°' }, grid: { color: 'rgba(255,255,255,0.07)' }, border: { display: false } }
@@ -1089,6 +1480,15 @@
 
     // ─── Apply Data ───
     function applyData(data) {
+      const app = document.querySelector('.app');
+      if (app) {
+        app.classList.remove('is-transitioning');
+        void app.offsetWidth;
+        app.classList.add('is-transitioning');
+        window.clearTimeout(app.transitionTimer);
+        app.transitionTimer = window.setTimeout(() => app.classList.remove('is-transitioning'), 760);
+      }
+
       document.getElementById('val-temp').textContent = data.temp;
       document.getElementById('val-hum').textContent = data.hum;
       document.getElementById('val-pres').textContent = data.pres;
