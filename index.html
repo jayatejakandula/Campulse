@@ -1170,9 +1170,11 @@
     }
 
     function normalizeRainValue(value) {
-      if (value === true || value === 'true' || value === 'True' || value === 'Yes' || value === 'yes' || value === 1) return 'Yes';
-      if (typeof value === 'number' && Number.isFinite(value)) return value <= RAIN_SENSOR_WET_THRESHOLD ? 'Yes' : 'No';
-      if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value) <= RAIN_SENSOR_WET_THRESHOLD ? 'Yes' : 'No';
+      if (value === true || value === 'true' || value === 'True' || value === 'Yes' || value === 'yes') return 'Yes';
+      if (value === false || value === 'false' || value === 'False' || value === 'No' || value === 'no') return 'No';
+      // Analog rain sensor: HIGH value = wet, LOW value = dry
+      if (typeof value === 'number' && Number.isFinite(value)) return value >= RAIN_SENSOR_WET_THRESHOLD ? 'Yes' : 'No';
+      if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value) >= RAIN_SENSOR_WET_THRESHOLD ? 'Yes' : 'No';
       return 'No';
     }
 
